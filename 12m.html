@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>12个月翻牌（固定高度 + 右侧预览 + 概率模拟 + 自动连玩）</title>
+  <style>
+    :root{
+      --gap: 8px;
+      --cardW: 50px;
+      --cardH: 70px;
+      --radius: 12px;
+      --stackPad: 8px;
+      --overlapY: 8px;
+      --cellH: 132px;
+    }
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif;
+      margin:14px; background:#f7f7f9; color:#111;
+    }
+    h1{ font-size:16px; margin:0 0 10px; }
+
+    .bar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+    button{
+      padding:7px 10px; border:0; border-radius:12px; background:#111; color:#fff; cursor:pointer;
+      box-shadow:0 1px 0 rgba(0,0,0,.06);
+      font-size:13px;
+    }
+    button.secondary{ background:#444; }
+    button:disabled{ opacity:.5; cursor:not-allowed; }
+    .pill{
+      background:#fff; border:1px solid #e6e6ea; border-radius:999px; padding:5px 9px;
+      display:inline-flex; gap:8px; align-items:center;
+      font-size:12px;
+    }
+    input[type="range"]{ width: 140px; }
+    input[type="number"]{
+      width: 92px;
+      padding:6px 8px;
+      border:1px solid #e6e6ea;
+      border-radius:10px;
+      background:#fff;
+      font-size:12px;
+    }
+    label{ font-size:12px; color:#222; display:inline-flex; gap:6px; align-items:center; }
+    .muted{ color:#666; font-size:12px; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(6, minmax(160px, 1fr));
+      gap: var(--gap);
+    }
+    @media (max-width: 1220px){
+      .grid{ grid-template-columns: repeat(3, minmax(170px, 1fr)); }
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns: repeat(2, minmax(170px, 1fr)); }
+    }
+    @media (max-width: 460px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .pile{
+      background:#fff; border:1px solid #e6e6ea; border-radius:14px;
+      padding:8px; box-shadow:0 1px 0 rgba(0,0,0,.03);
+      position:relative; overflow:hidden;
+      transition: outline-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+    .pile.active{ outline: 3px solid rgba(17,17,17,.14); }
+    .pile.destGlow{
+      box-shadow:0 0 0 5px rgba(0,0,0,.12), 0 10px 22px rgba(0,0,0,.06);
+      transform: translateY(-1px);
+    }
+
+    .pile h2{
+      font-size:13px; margin:0 0 4px;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .meta{
+      font-size:11px; color:#444; display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px;
+    }
+    .meta b{ color:#111; }
+
+    .stackRow{
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+      height: var(--cellH);
+    }
+
+    .stack{
+      position:relative;
+      flex: 1 1 auto;
+      border-radius:12px;
+      border:1px solid rgba(0,0,0,.06);
+      background: linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,0));
+      overflow:hidden;
+      padding: var(--stackPad);
+      height: 100%;
+    }
+    .cardWrap{
+      position:absolute;
+      left: var(--stackPad);
+      top: var(--stackPad);
+    }
+
+    .preview{
+      width: calc(var(--cardW) + 18px);
+      border-radius:12px;
+      border:1px dashed rgba(0,0,0,.18);
+      background: #fafafa;
+      padding:6px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      height: 100%;
+      box-sizing:border-box;
+      gap:6px;
+    }
+    .previewTop{
+      width:100%;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-size:10px;
+      color:#777;
+      user-select:none;
+    }
+    .previewHint{
+      font-size:10px;
+      color:#555;
+      text-align:center;
+      line-height:1.15;
+      min-height: 24px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 2px;
+    }
+
+    .card{
+      width: var(--cardW); height: var(--cardH);
+      border-radius: var(--radius);
+      border:1px solid rgba(0,0,0,.18);
+      box-shadow: 0 6px 14px rgba(0,0,0,.08);
+      background:#fff;
+      position:relative;
+      user-select:none;
+      display:flex; align-items:center; justify-content:center;
+      overflow:hidden;
+    }
+
+    /* ✅ 更亮一些的花纹牌背（不再“全黑”） */
+    .card.back{
+      border-color:#242424;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          rgba(255,255,255,0.12) 0px,
+          rgba(255,255,255,0.12) 2px,
+          transparent 2px,
+          transparent 7px
+        ),
+        repeating-linear-gradient(
+          -45deg,
+          rgba(255,255,255,0.08) 0px,
+          rgba(255,255,255,0.08) 2px,
+          transparent 2px,
+          transparent 7px
+        ),
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.16), transparent 45%),
+        linear-gradient(135deg,#343434,#5a5a5a);
+    }
+    .card.back::before{
+      content:"";
+      position:absolute;
+      inset:6px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.22);
+    }
+    .card.back::after{
+      content:"";
+      position:absolute;
+      inset:12px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .rankTL, .rankBR{
+      position:absolute;
+      font-weight:700;
+      font-size:12px;
+      line-height:1;
+      display:flex; flex-direction:column; align-items:center;
+      gap:2px;
+    }
+    .rankTL{ left:6px; top:6px; }
+    .rankBR{ right:6px; bottom:6px; transform: rotate(180deg); }
+    .suitMid{ font-size:26px; opacity:.95; }
+    .red{ color:#d11; }
+    .black{ color:#111; }
+
+    .pulse{ animation: pop .26s ease-out; }
+    @keyframes pop{ 0%{ transform: scale(.93); opacity:.7; } 100%{ transform: scale(1); opacity:1; } }
+
+    .badge{
+      position:absolute;
+      right:8px; bottom:6px;
+      font-size:11px; color:#444;
+      background: rgba(255,255,255,.85);
+      border:1px solid rgba(0,0,0,.08);
+      border-radius:999px;
+      padding:3px 7px;
+      backdrop-filter: blur(6px);
+    }
+
+    .small{ font-size:12px; color:#444; }
+    .ok{ color:#0a7; font-weight:600; }
+    .bad{ color:#d33; font-weight:600; }
+
+    .logWrap{ margin-top:10px; background:#fff; border:1px solid #e6e6ea; border-radius:14px; padding:10px; }
+    .logHead{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .log{
+      margin-top:8px; height:200px; overflow:auto;
+      font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      font-size:12px; background:#0b0b0c; color:#e9e9ea; border-radius:12px; padding:10px;
+      white-space:pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>12个月翻牌（固定高度 + 右侧预览 → 目标月 + 概率模拟 + 自动连玩）</h1>
+
+  <div class="bar">
+    <button id="btnNew">新开一局</button>
+    <button id="btnRun">开始自动运行</button>
+    <button id="btnPause" disabled>暂停</button>
+    <button id="btnStep">单步</button>
+
+    <span class="pill">
+      速度：
+      <input id="speed" type="range" min="0" max="2000" step="100" value="1000" />
+      <span id="speedVal">1000ms</span>
+    </span>
+
+    <span class="pill">已翻开：<span id="turned">0</span>/48</span>
+    <span class="pill">状态：<span id="status" class="small">未开始</span></span>
+
+    <span class="pill">
+      <label><input id="chkAutoReplay" type="checkbox" /> 连玩模式</label>
+      <label class="muted"><input id="chkInfinite" type="checkbox" /> 无限</label>
+      <span class="muted">局数</span>
+      <input id="replayCount" type="number" min="1" step="1" value="50" />
+      <span class="muted">
+        已连玩 <b id="replayDone">0</b> / <b id="replayTarget">0</b>，
+        成功 <b id="replayWins">0</b>
+      </span>
+    </span>
+
+    <span class="pill">
+      <span class="muted">概率模拟</span>
+      <input id="simN" type="number" min="100" step="100" value="20000" />
+      <button id="btnSim" class="secondary">估算胜率</button>
+      <span class="muted">结果：<b id="simOut">—</b></span>
+    </span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="logWrap">
+    <div class="logHead">
+      <div class="small">操作日志</div>
+      <button id="btnClearLog" class="secondary">清空日志</button>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+<script>
+(() => {
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const nowTime = () => new Date().toLocaleTimeString();
+
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // card: { v:1..12, s:0..3 }  s:0♠ 1♥ 2♦ 3♣
+  const SUITS = [
+    { sym:"♠", cls:"black" },
+    { sym:"♥", cls:"red" },
+    { sym:"♦", cls:"red" },
+    { sym:"♣", cls:"black" },
+  ];
+
+  function rankText(v){
+    if (v === 1) return "A";
+    if (v === 11) return "J";
+    if (v === 12) return "Q";
+    return String(v);
+  }
+
+  // ===== 可视化版状态 =====
+  let piles = [];              // 12 piles: {down:[], up:[]}
+  let current = 0;
+  let running = false;
+  let stopFlag = false;
+  let turnedCount = 0;
+
+  // reveal：{ pileIndex, card, destIndex }
+  let reveal = null;
+
+  let destGlowIndex = -1;
+  let glowTimer = null;
+
+  // 自动连玩
+  let replayMode = false;
+  let replayInfinite = false;
+  let replayTarget = 0;
+  let replayDone = 0;
+  let replayWins = 0;
+
+  // 概率模拟执行标记
+  let simRunning = false;
+
+  // ===== DOM =====
+  const $grid = document.getElementById("grid");
+  const $log = document.getElementById("log");
+
+  const $btnNew = document.getElementById("btnNew");
+  const $btnRun = document.getElementById("btnRun");
+  const $btnPause = document.getElementById("btnPause");
+  const $btnStep = document.getElementById("btnStep");
+
+  const $speed = document.getElementById("speed");
+  const $speedVal = document.getElementById("speedVal");
+  const $turned = document.getElementById("turned");
+  const $status = document.getElementById("status");
+  const $btnClearLog = document.getElementById("btnClearLog");
+
+  const $chkAutoReplay = document.getElementById("chkAutoReplay");
+  const $chkInfinite = document.getElementById("chkInfinite");
+  const $replayCount = document.getElementById("replayCount");
+  const $replayDone = document.getElementById("replayDone");
+  const $replayTarget = document.getElementById("replayTarget");
+  const $replayWins = document.getElementById("replayWins");
+
+  const $simN = document.getElementById("simN");
+  const $btnSim = document.getElementById("btnSim");
+  const $simOut = document.getElementById("simOut");
+
+  $speed.addEventListener("input", () => $speedVal.textContent = `${$speed.value}ms`);
+
+  function log(line){
+    $log.textContent += `[${nowTime()}] ${line}\n`;
+    $log.scrollTop = $log.scrollHeight;
+  }
+  function setStatus(text, cls){
+    $status.className = cls ? cls : "small";
+    $status.textContent = text;
+  }
+  function setButtons(){
+    $btnPause.disabled = !running;
+    $btnRun.disabled = running;
+
+    const lock = simRunning;
+    $btnNew.disabled = lock;
+    $btnStep.disabled = lock;
+    $btnRun.disabled = lock || running;
+    $btnPause.disabled = lock || !running;
+    $btnSim.disabled = lock;
+  }
+
+  function glowDest(index){
+    destGlowIndex = index;
+    if (glowTimer) clearTimeout(glowTimer);
+    glowTimer = setTimeout(() => { destGlowIndex = -1; render(); }, 420);
+  }
+
+  function cardFaceEl(card, extraClass=""){
+    const s = SUITS[card.s];
+    const div = document.createElement("div");
+    div.className = `card ${extraClass}`.trim();
+
+    const tl = document.createElement("div");
+    tl.className = `rankTL ${s.cls}`;
+    tl.innerHTML = `<div>${rankText(card.v)}</div><div>${s.sym}</div>`;
+
+    const br = document.createElement("div");
+    br.className = `rankBR ${s.cls}`;
+    br.innerHTML = `<div>${rankText(card.v)}</div><div>${s.sym}</div>`;
+
+    const mid = document.createElement("div");
+    mid.className = `suitMid ${s.cls}`;
+    mid.textContent = s.sym;
+
+    div.appendChild(tl);
+    div.appendChild(mid);
+    div.appendChild(br);
+    return div;
+  }
+
+  function cardBackEl(){
+    const div = document.createElement("div");
+    div.className = "card back";
+    return div;
+  }
+
+  function render(){
+    if (!piles || piles.length !== 12) return;
+
+    $grid.innerHTML = "";
+    const overlapY = Number(getComputedStyle(document.documentElement).getPropertyValue("--overlapY").replace("px","")) || 8;
+
+    for (let i = 0; i < 12; i++){
+      const p = piles[i];
+
+      const pileDiv = document.createElement("div");
+      pileDiv.className =
+        "pile" +
+        (i === current ? " active" : "") +
+        (i === destGlowIndex ? " destGlow" : "");
+
+      const title = document.createElement("h2");
+      title.innerHTML = `<span>${i+1} 月</span><span class="small">点数：${i+1}</span>`;
+      pileDiv.appendChild(title);
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.innerHTML = `<span>down：<b>${p.down.length}</b></span><span>up：<b>${p.up.length}</b></span>`;
+      pileDiv.appendChild(meta);
+
+      const row = document.createElement("div");
+      row.className = "stackRow";
+
+      const stack = document.createElement("div");
+      stack.className = "stack";
+
+      const display = [];
+      for (let k = 0; k < p.down.length; k++) display.push({ type:"downBack" });
+      for (let k = 0; k < p.up.length; k++) display.push({ type:"upFace", card: p.up[k] });
+
+      const maxShow = 12;
+      const start = Math.max(0, display.length - maxShow);
+      const shown = display.slice(start);
+
+      for (let idx = 0; idx < shown.length; idx++){
+        const it = shown[idx];
+        const wrap = document.createElement("div");
+        wrap.className = "cardWrap";
+        wrap.style.transform = `translateY(${idx * overlapY}px)`;
+        wrap.style.zIndex = String(100 + idx);
+        if (it.type === "downBack") wrap.appendChild(cardBackEl());
+        else wrap.appendChild(cardFaceEl(it.card));
+        stack.appendChild(wrap);
+      }
+
+      const omitted = Math.max(0, display.length - shown.length);
+      const badge = document.createElement("div");
+      badge.className = "badge";
+      badge.textContent = omitted > 0 ? `底下省略 ${omitted}` : `共 ${display.length}`;
+      stack.appendChild(badge);
+
+      const preview = document.createElement("div");
+      preview.className = "preview";
+
+      const top = document.createElement("div");
+      top.className = "previewTop";
+      top.innerHTML = `<span>NEW</span><span>${i+1}月</span>`;
+      preview.appendChild(top);
+
+      const hint = document.createElement("div");
+      hint.className = "previewHint";
+
+      const revealHere = (reveal && reveal.pileIndex === i);
+      if (revealHere){
+        hint.textContent = `→ 目标：${reveal.destIndex + 1}月`;
+        preview.appendChild(cardFaceEl(reveal.card, "pulse"));
+      } else {
+        hint.textContent = "";
+      }
+      preview.appendChild(hint);
+
+      row.appendChild(stack);
+      row.appendChild(preview);
+
+      pileDiv.appendChild(row);
+      $grid.appendChild(pileDiv);
+    }
+
+    $turned.textContent = String(turnedCount);
+    $replayDone.textContent = String(replayDone);
+    $replayTarget.textContent = replayInfinite ? "∞" : String(replayTarget || 0);
+    $replayWins.textContent = String(replayWins);
+  }
+
+  function newGame(){
+    const deck = [];
+    for (let v = 1; v <= 12; v++){
+      for (let s = 0; s < 4; s++){
+        deck.push({ v, s });
+      }
+    }
+    shuffle(deck);
+
+    piles = Array.from({length:12}, () => ({ down: [], up: [] }));
+    for (let i = 0; i < 48; i++){
+      piles[i % 12].down.push(deck[i]);
+    }
+
+    current = 0;
+    running = false;
+    stopFlag = false;
+    turnedCount = 0;
+    reveal = null;
+    destGlowIndex = -1;
+
+    setButtons();
+    setStatus("未开始", "small");
+    log("新开一局：洗牌并分成12列，每列4张（down）。从 1月列开始。");
+    render();
+  }
+
+  function isSuccess(){
+    return piles.every(p => p.down.length === 0);
+  }
+
+  // ===== 自动连玩配置 =====
+  function syncReplaySettings(){
+    replayMode = $chkAutoReplay.checked;
+    replayInfinite = $chkInfinite.checked;
+    replayTarget = replayInfinite ? 0 : Math.max(1, parseInt($replayCount.value || "1", 10));
+    $replayCount.disabled = replayInfinite;
+
+    if (piles && piles.length === 12) render();
+  }
+  $chkAutoReplay.addEventListener("change", syncReplaySettings);
+  $chkInfinite.addEventListener("change", syncReplaySettings);
+  $replayCount.addEventListener("change", syncReplaySettings);
+
+  async function maybeReplayNext(){
+    if (!replayMode) return;
+    if (!replayInfinite && replayDone >= replayTarget) {
+      log(`连玩结束：已完成 ${replayDone}/${replayTarget} 局，其中成功 ${replayWins} 局。`);
+      return;
+    }
+    newGame();
+    await sleep(80);
+    await runLoop();
+  }
+
+  async function doOneMove(withDelay=true){
+    if (stopFlag) return;
+    const delayMs = Number($speed.value);
+
+    if (piles[current].down.length === 0){
+      const success = isSuccess();
+
+      if (success){
+        setStatus("成功：已翻开全部 48 张", "ok");
+        log("✅ 成功：所有牌都翻开了！");
+      } else {
+        setStatus(`结束：${current+1}月列已无未翻牌可翻`, "bad");
+        log(`⛔ 结束：当前在 ${current+1} 月列，但此列 down 已空。`);
+      }
+
+      running = false;
+      stopFlag = true;
+      setButtons();
+      reveal = null;
+      render();
+
+      replayDone++;
+      if (success) replayWins++;
+      render();
+
+      await maybeReplayNext();
+      return;
+    }
+
+    const card = piles[current].down.pop();
+    turnedCount++;
+
+    const dest = card.v - 1;
+    const suit = SUITS[card.s].sym;
+
+    reveal = { pileIndex: current, card, destIndex: dest };
+    log(`翻牌：在 ${current+1} 月列翻出 ${rankText(card.v)}${suit}（预览 → ${dest+1}月）。`);
+    render();
+    if (withDelay && delayMs > 0) await sleep(delayMs);
+
+    reveal = null;
+    glowDest(dest);
+    piles[dest].up.push(card);
+
+    log(`移动：将 ${rankText(card.v)}${suit} 放到 ${dest+1} 月列（up）；下一步去 ${dest+1} 月列继续翻。`);
+    current = dest;
+    render();
+    if (withDelay && delayMs > 0) await sleep(delayMs);
+
+    if (isSuccess()){
+      setStatus("成功：已翻开全部 48 张", "ok");
+      log("✅ 成功：所有牌都翻开了！");
+      running = false;
+      stopFlag = true;
+      setButtons();
+      render();
+
+      replayDone++;
+      replayWins++;
+      render();
+
+      await maybeReplayNext();
+    } else {
+      setStatus(`进行中：当前轮到 ${current+1} 月列`, "small");
+    }
+  }
+
+  async function runLoop(){
+    if (running || simRunning) return;
+    running = true;
+    stopFlag = false;
+    setButtons();
+    setStatus(`自动运行中：当前 ${current+1} 月列`, "small");
+
+    while (running && !stopFlag){
+      await doOneMove(true);
+    }
+  }
+
+  function pause(){
+    running = false;
+    setButtons();
+    if (!stopFlag) setStatus("已暂停", "small");
+    log("暂停。");
+  }
+
+  // ===== 概率模拟：无动画快速模拟 =====
+  function simulateOneGame(){
+    const deck = [];
+    for (let v = 1; v <= 12; v++){
+      for (let k = 0; k < 4; k++) deck.push(v);
+    }
+    shuffle(deck);
+
+    const down = Array.from({length:12}, () => []);
+    for (let i = 0; i < 48; i++){
+      down[i % 12].push(deck[i]);
+    }
+
+    let cur = 0;
+    let remainingDown = 48;
+
+    while (true){
+      if (down[cur].length === 0){
+        return (remainingDown === 0);
+      }
+      const v = down[cur].pop();
+      remainingDown--;
+      cur = v - 1;
+      if (remainingDown === 0) return true;
+    }
+  }
+
+  async function simulateMany(n){
+    simRunning = true;
+    setButtons();
+    setStatus("概率模拟中…", "small");
+    $simOut.textContent = "运行中…";
+
+    let wins = 0;
+    let done = 0;
+
+    const chunk = 400;
+    while (done < n){
+      const end = Math.min(n, done + chunk);
+      for (; done < end; done++){
+        if (simulateOneGame()) wins++;
+      }
+      const pct = (wins / done) * 100;
+      $simOut.textContent = `${pct.toFixed(3)}%  (${wins}/${done})`;
+      await sleep(0);
+    }
+
+    const pct = (wins / n) * 100;
+    $simOut.textContent = `${pct.toFixed(3)}%  (${wins}/${n})`;
+    setStatus("概率模拟完成", "small");
+    log(`概率模拟完成：N=${n}，成功 ${wins}，估算胜率 ${pct.toFixed(3)}%。`);
+
+    simRunning = false;
+    setButtons();
+  }
+
+  // ===== 事件绑定 =====
+  $btnNew.addEventListener("click", () => {
+    replayDone = 0;
+    replayWins = 0;
+    syncReplaySettings();
+    newGame();
+  });
+
+  $btnRun.addEventListener("click", async () => {
+    if ($chkAutoReplay.checked && replayDone === 0){
+      syncReplaySettings();
+    }
+    await runLoop();
+  });
+
+  $btnPause.addEventListener("click", pause);
+
+  $btnStep.addEventListener("click", async () => {
+    if (running || simRunning) return;
+    stopFlag = false;
+    setStatus(`单步：当前 ${current+1} 月列`, "small");
+    await doOneMove(true);
+  });
+
+  $btnClearLog.addEventListener("click", () => { $log.textContent = ""; });
+
+  $btnSim.addEventListener("click", async () => {
+    if (running || simRunning) return;
+    const n = Math.max(100, parseInt($simN.value || "1000", 10));
+    await simulateMany(n);
+  });
+
+  // 初始：先开局，再同步连玩设置
+  newGame();
+  syncReplaySettings();
+})();
+</script>
+</body>
+</html>
