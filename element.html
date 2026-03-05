@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>元素周期表 | Periodic Table</title>
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --border:rgba(255,255,255,.10);
+      --shadow: 0 10px 30px rgba(0,0,0,.45);
+      --radius:14px;
+      --cellMin: 48px;
+      --gap: 6px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background: radial-gradient(1200px 800px at 20% 0%, rgba(59,130,246,.25), transparent 60%),
+                  radial-gradient(900px 600px at 80% 10%, rgba(168,85,247,.20), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+
+    .wrap{
+      max-width: 1200px;
+      margin: 18px auto 40px;
+      padding: 0 14px;
+    }
+
+    header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .title{ display:flex; flex-direction:column; gap:6px; }
+    h1{ font-size:20px; margin:0; letter-spacing:.2px; font-weight:750; }
+    .sub{ color: var(--muted); font-size: 13px; line-height: 1.35; }
+
+    .toolbar{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor:pointer;
+      user-select:none;
+      box-shadow: 0 6px 18px rgba(0,0,0,.25);
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+    }
+    .btn:hover{ filter: brightness(1.08); }
+    .btn:active{ transform: translateY(1px); }
+
+    .toggle{
+      display:flex; align-items:center; gap:8px;
+      border:1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,.04);
+      box-shadow: 0 6px 18px rgba(0,0,0,.25);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .toggle input{ accent-color: #60a5fa; }
+
+    .legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin: 12px 0 14px;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dot{
+      width:10px; height:10px; border-radius:50%;
+      box-shadow: 0 0 0 2px rgba(0,0,0,.25) inset;
+    }
+
+    .board{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(18, minmax(var(--cellMin), 1fr));
+      gap: var(--gap);
+      align-items:stretch;
+    }
+
+    .cell{
+      position:relative;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      border-radius: 12px;
+      min-height: 52px;
+      padding: 6px 6px 7px;
+      cursor: pointer;
+      user-select:none;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      transition: transform .08s ease, filter .08s ease, border-color .08s ease;
+      outline:none;
+    }
+    .cell:hover, .cell:focus{
+      transform: translateY(-2px);
+      filter: brightness(1.08);
+      border-color: rgba(255,255,255,.25);
+    }
+
+    .n{ font-family: var(--mono); font-size: 11px; color: rgba(255,255,255,.75); line-height: 1; }
+    .sym{ font-family: var(--mono); font-size: 16px; font-weight: 800; letter-spacing:.2px; line-height: 1.05; margin-top: 2px; }
+    .name{ font-size: 11px; color: rgba(255,255,255,.82); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height: 1.1; }
+
+    .rowTitle{
+      margin: 12px 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing:.2px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .rowTitle .line{ height:1px; flex:1; background: rgba(255,255,255,.08); }
+
+    .fgrid{
+      display:grid;
+      grid-template-columns: repeat(15, minmax(var(--cellMin), 1fr));
+      gap: var(--gap);
+      align-items:stretch;
+    }
+
+    /* 分类配色 */
+    .cat-alkali{ background: rgba(239,68,68,.18); }
+    .cat-alkaline{ background: rgba(245,158,11,.18); }
+    .cat-transition{ background: rgba(59,130,246,.18); }
+    .cat-post{ background: rgba(34,197,94,.18); }
+    .cat-metalloid{ background: rgba(16,185,129,.18); }
+    .cat-nonmetal{ background: rgba(168,85,247,.18); }
+    .cat-halogen{ background: rgba(236,72,153,.18); }
+    .cat-noble{ background: rgba(14,165,233,.18); }
+    .cat-lanthanide{ background: rgba(251,113,133,.18); }
+    .cat-actinide{ background: rgba(244,114,182,.18); }
+    .cat-unknown{ background: rgba(148,163,184,.14); }
+
+    /* 弹窗（点击打开） */
+    .modalOverlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(3px);
+      z-index: 2000;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 14px;
+    }
+    .modalOverlay.show{ display:flex; }
+
+    .modal{
+      width: min(520px, 100%);
+      max-height: min(78vh, 680px);
+      overflow:auto;
+      border: 1px solid rgba(255,255,255,.16);
+      background: linear-gradient(180deg, rgba(17,24,39,.98), rgba(15,23,42,.98));
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 14px 14px 12px;
+    }
+
+    .modalHeader{
+      display:flex;
+      gap: 10px;
+      align-items:flex-start;
+      justify-content:space-between;
+      margin-bottom: 10px;
+    }
+    .modalTitle{
+      display:flex; flex-direction:column; gap:3px;
+      min-width: 0;
+    }
+    .modalName{
+      font-size: 18px;
+      font-weight: 850;
+      letter-spacing:.2px;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .modalSub{
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .modalActions{
+      display:flex; gap:8px; align-items:center; flex-shrink:0;
+    }
+    .iconBtn{
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      cursor:pointer;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .iconBtn:hover{ filter: brightness(1.08); }
+    .iconBtn:active{ transform: translateY(1px); }
+
+    .kv{
+      display:grid;
+      grid-template-columns: 120px 1fr;
+      gap: 8px 10px;
+      font-size: 13px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,.10);
+    }
+    .k{ color: var(--muted); }
+    .v{ color: rgba(255,255,255,.92); font-family: var(--mono); word-break: break-word; }
+
+    .hint{
+      color: rgba(255,255,255,.55);
+      font-size: 12px;
+      margin-top: 10px;
+      font-family: var(--mono);
+    }
+
+    @media (max-width: 980px){ :root{ --cellMin: 42px; } }
+    @media (max-width: 720px){
+      :root{ --cellMin: 38px; --gap: 5px; }
+      header{ flex-direction:column; align-items:stretch; }
+      .toolbar{ justify-content:flex-start; }
+      .kv{ grid-template-columns: 104px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1 id="pageTitle">元素周期表</h1>
+        <div class="sub" id="pageSub">点击元素查看详情；支持中英文切换与英文朗读（浏览器语音）。</div>
+      </div>
+
+      <div class="toolbar">
+        <label class="toggle" title="切换语言 / Toggle language">
+          <input id="langToggle" type="checkbox" />
+          <span id="langLabel">中文 / English</span>
+        </label>
+
+        <button class="btn" id="btnStopSpeak" title="停止朗读 / Stop speech">
+          ⏹ <span id="stopSpeakText">停止朗读</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="legend" id="legend"></div>
+
+    <div class="board">
+      <div class="grid" id="mainGrid" aria-label="Periodic Table"></div>
+
+      <div class="rowTitle"><span id="lanTitle">镧系（57–71）</span><span class="line"></span></div>
+      <div class="fgrid" id="lanGrid"></div>
+
+      <div class="rowTitle"><span id="actTitle">锕系（89–103）</span><span class="line"></span></div>
+      <div class="fgrid" id="actGrid"></div>
+    </div>
+  </div>
+
+  <!-- 点击弹窗 -->
+  <div class="modalOverlay" id="overlay" aria-hidden="true">
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Element details">
+      <div class="modalHeader">
+        <div class="modalTitle">
+          <div class="modalName" id="modalName">—</div>
+          <div class="modalSub" id="modalSub">—</div>
+        </div>
+        <div class="modalActions">
+          <button class="iconBtn" id="btnSpeak" title="英文发音 / Speak English">🔊 <span id="speakText">发音</span></button>
+          <button class="iconBtn" id="btnClose" title="关闭 / Close">✕ <span id="closeText">关闭</span></button>
+        </div>
+      </div>
+      <div class="kv" id="modalKV"></div>
+      <div class="hint" id="modalHint">提示：点击遮罩或按 Esc 可关闭。</div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const state = {
+    lang: "zh",
+    currentElement: null,
+    preferVoice: null
+  };
+
+  const categories = [
+    { key:"alkali",      zh:"碱金属",         en:"Alkali metals" },
+    { key:"alkaline",    zh:"碱土金属",       en:"Alkaline earth metals" },
+    { key:"transition",  zh:"过渡金属",       en:"Transition metals" },
+    { key:"post",        zh:"后过渡金属",     en:"Post-transition metals" },
+    { key:"metalloid",   zh:"类金属",         en:"Metalloids" },
+    { key:"nonmetal",    zh:"非金属",         en:"Nonmetals" },
+    { key:"halogen",     zh:"卤素",           en:"Halogens" },
+    { key:"noble",       zh:"稀有气体",       en:"Noble gases" },
+    { key:"lanthanide",  zh:"镧系",           en:"Lanthanides" },
+    { key:"actinide",    zh:"锕系",           en:"Actinides" },
+    { key:"unknown",     zh:"未知/待定",      en:"Unknown" }
+  ];
+
+  function catClass(catKey){ return "cat-" + (catKey || "unknown"); }
+
+  // 元素数据（为简洁，这里保持与你之前版本一致）
+  const E = [
+    {Z:1,  symbol:"H",  name_zh:"氢",   name_en:"Hydrogen",   group:1,  period:1, category:"nonmetal",  mass:"1.008",  phonetic:"", econf:"1s1", state:{zh:"气",en:"gas"}},
+    {Z:2,  symbol:"He", name_zh:"氦",   name_en:"Helium",     group:18, period:1, category:"noble",     mass:"4.0026", phonetic:"", econf:"1s2", state:{zh:"气",en:"gas"}},
+
+    {Z:3,  symbol:"Li", name_zh:"锂",   name_en:"Lithium",    group:1,  period:2, category:"alkali",    mass:"6.94",   phonetic:"", econf:"[He] 2s1", state:{zh:"固",en:"solid"}},
+    {Z:4,  symbol:"Be", name_zh:"铍",   name_en:"Beryllium",  group:2,  period:2, category:"alkaline",  mass:"9.0122", phonetic:"", econf:"[He] 2s2", state:{zh:"固",en:"solid"}},
+    {Z:5,  symbol:"B",  name_zh:"硼",   name_en:"Boron",      group:13, period:2, category:"metalloid", mass:"10.81",  phonetic:"", econf:"[He] 2s2 2p1", state:{zh:"固",en:"solid"}},
+    {Z:6,  symbol:"C",  name_zh:"碳",   name_en:"Carbon",     group:14, period:2, category:"nonmetal",  mass:"12.011", phonetic:"", econf:"[He] 2s2 2p2", state:{zh:"固",en:"solid"}},
+    {Z:7,  symbol:"N",  name_zh:"氮",   name_en:"Nitrogen",   group:15, period:2, category:"nonmetal",  mass:"14.007", phonetic:"", econf:"[He] 2s2 2p3", state:{zh:"气",en:"gas"}},
+    {Z:8,  symbol:"O",  name_zh:"氧",   name_en:"Oxygen",     group:16, period:2, category:"nonmetal",  mass:"15.999", phonetic:"", econf:"[He] 2s2 2p4", state:{zh:"气",en:"gas"}},
+    {Z:9,  symbol:"F",  name_zh:"氟",   name_en:"Fluorine",   group:17, period:2, category:"halogen",   mass:"18.998", phonetic:"", econf:"[He] 2s2 2p5", state:{zh:"气",en:"gas"}},
+    {Z:10, symbol:"Ne", name_zh:"氖",   name_en:"Neon",       group:18, period:2, category:"noble",     mass:"20.180", phonetic:"", econf:"[He] 2s2 2p6", state:{zh:"气",en:"gas"}},
+
+    {Z:11, symbol:"Na", name_zh:"钠",   name_en:"Sodium",     group:1,  period:3, category:"alkali",    mass:"22.990", phonetic:"", econf:"[Ne] 3s1", state:{zh:"固",en:"solid"}},
+    {Z:12, symbol:"Mg", name_zh:"镁",   name_en:"Magnesium",  group:2,  period:3, category:"alkaline",  mass:"24.305", phonetic:"", econf:"[Ne] 3s2", state:{zh:"固",en:"solid"}},
+    {Z:13, symbol:"Al", name_zh:"铝",   name_en:"Aluminium",  group:13, period:3, category:"post",      mass:"26.982", phonetic:"", econf:"[Ne] 3s2 3p1", state:{zh:"固",en:"solid"}},
+    {Z:14, symbol:"Si", name_zh:"硅",   name_en:"Silicon",    group:14, period:3, category:"metalloid", mass:"28.085", phonetic:"", econf:"[Ne] 3s2 3p2", state:{zh:"固",en:"solid"}},
+    {Z:15, symbol:"P",  name_zh:"磷",   name_en:"Phosphorus", group:15, period:3, category:"nonmetal",  mass:"30.974", phonetic:"", econf:"[Ne] 3s2 3p3", state:{zh:"固",en:"solid"}},
+    {Z:16, symbol:"S",  name_zh:"硫",   name_en:"Sulfur",     group:16, period:3, category:"nonmetal",  mass:"32.06",  phonetic:"", econf:"[Ne] 3s2 3p4", state:{zh:"固",en:"solid"}},
+    {Z:17, symbol:"Cl", name_zh:"氯",   name_en:"Chlorine",   group:17, period:3, category:"halogen",   mass:"35.45",  phonetic:"", econf:"[Ne] 3s2 3p5", state:{zh:"气",en:"gas"}},
+    {Z:18, symbol:"Ar", name_zh:"氩",   name_en:"Argon",      group:18, period:3, category:"noble",     mass:"39.948", phonetic:"", econf:"[Ne] 3s2 3p6", state:{zh:"气",en:"gas"}},
+
+    {Z:19, symbol:"K",  name_zh:"钾",   name_en:"Potassium",  group:1,  period:4, category:"alkali",    mass:"39.098", phonetic:"", econf:"[Ar] 4s1", state:{zh:"固",en:"solid"}},
+    {Z:20, symbol:"Ca", name_zh:"钙",   name_en:"Calcium",    group:2,  period:4, category:"alkaline",  mass:"40.078", phonetic:"", econf:"[Ar] 4s2", state:{zh:"固",en:"solid"}},
+    {Z:21, symbol:"Sc", name_zh:"钪",   name_en:"Scandium",   group:3,  period:4, category:"transition", mass:"44.956", phonetic:"", econf:"[Ar] 3d1 4s2", state:{zh:"固",en:"solid"}},
+    {Z:22, symbol:"Ti", name_zh:"钛",   name_en:"Titanium",   group:4,  period:4, category:"transition", mass:"47.867", phonetic:"", econf:"[Ar] 3d2 4s2", state:{zh:"固",en:"solid"}},
+    {Z:23, symbol:"V",  name_zh:"钒",   name_en:"Vanadium",   group:5,  period:4, category:"transition", mass:"50.942", phonetic:"", econf:"[Ar] 3d3 4s2", state:{zh:"固",en:"solid"}},
+    {Z:24, symbol:"Cr", name_zh:"铬",   name_en:"Chromium",   group:6,  period:4, category:"transition", mass:"51.996", phonetic:"", econf:"[Ar] 3d5 4s1", state:{zh:"固",en:"solid"}},
+    {Z:25, symbol:"Mn", name_zh:"锰",   name_en:"Manganese",  group:7,  period:4, category:"transition", mass:"54.938", phonetic:"", econf:"[Ar] 3d5 4s2", state:{zh:"固",en:"solid"}},
+    {Z:26, symbol:"Fe", name_zh:"铁",   name_en:"Iron",       group:8,  period:4, category:"transition", mass:"55.845", phonetic:"", econf:"[Ar] 3d6 4s2", state:{zh:"固",en:"solid"}},
+    {Z:27, symbol:"Co", name_zh:"钴",   name_en:"Cobalt",     group:9,  period:4, category:"transition", mass:"58.933", phonetic:"", econf:"[Ar] 3d7 4s2", state:{zh:"固",en:"solid"}},
+    {Z:28, symbol:"Ni", name_zh:"镍",   name_en:"Nickel",     group:10, period:4, category:"transition", mass:"58.693", phonetic:"", econf:"[Ar] 3d8 4s2", state:{zh:"固",en:"solid"}},
+    {Z:29, symbol:"Cu", name_zh:"铜",   name_en:"Copper",     group:11, period:4, category:"transition", mass:"63.546", phonetic:"", econf:"[Ar] 3d10 4s1", state:{zh:"固",en:"solid"}},
+    {Z:30, symbol:"Zn", name_zh:"锌",   name_en:"Zinc",       group:12, period:4, category:"transition", mass:"65.38",  phonetic:"", econf:"[Ar] 3d10 4s2", state:{zh:"固",en:"solid"}},
+    {Z:31, symbol:"Ga", name_zh:"镓",   name_en:"Gallium",    group:13, period:4, category:"post",       mass:"69.723", phonetic:"", econf:"[Ar] 3d10 4s2 4p1", state:{zh:"固",en:"solid"}},
+    {Z:32, symbol:"Ge", name_zh:"锗",   name_en:"Germanium",  group:14, period:4, category:"metalloid",  mass:"72.630", phonetic:"", econf:"[Ar] 3d10 4s2 4p2", state:{zh:"固",en:"solid"}},
+    {Z:33, symbol:"As", name_zh:"砷",   name_en:"Arsenic",    group:15, period:4, category:"metalloid",  mass:"74.922", phonetic:"", econf:"[Ar] 3d10 4s2 4p3", state:{zh:"固",en:"solid"}},
+    {Z:34, symbol:"Se", name_zh:"硒",   name_en:"Selenium",   group:16, period:4, category:"nonmetal",   mass:"78.971", phonetic:"", econf:"[Ar] 3d10 4s2 4p4", state:{zh:"固",en:"solid"}},
+    {Z:35, symbol:"Br", name_zh:"溴",   name_en:"Bromine",    group:17, period:4, category:"halogen",    mass:"79.904", phonetic:"", econf:"[Ar] 3d10 4s2 4p5", state:{zh:"液",en:"liquid"}},
+    {Z:36, symbol:"Kr", name_zh:"氪",   name_en:"Krypton",    group:18, period:4, category:"noble",      mass:"83.798", phonetic:"", econf:"[Ar] 3d10 4s2 4p6", state:{zh:"气",en:"gas"}},
+
+    {Z:37, symbol:"Rb", name_zh:"铷",   name_en:"Rubidium",   group:1,  period:5, category:"alkali",     mass:"85.468", phonetic:"", econf:"[Kr] 5s1", state:{zh:"固",en:"solid"}},
+    {Z:38, symbol:"Sr", name_zh:"锶",   name_en:"Strontium",  group:2,  period:5, category:"alkaline",   mass:"87.62",  phonetic:"", econf:"[Kr] 5s2", state:{zh:"固",en:"solid"}},
+    {Z:39, symbol:"Y",  name_zh:"钇",   name_en:"Yttrium",    group:3,  period:5, category:"transition", mass:"88.906", phonetic:"", econf:"[Kr] 4d1 5s2", state:{zh:"固",en:"solid"}},
+    {Z:40, symbol:"Zr", name_zh:"锆",   name_en:"Zirconium",  group:4,  period:5, category:"transition", mass:"91.224", phonetic:"", econf:"[Kr] 4d2 5s2", state:{zh:"固",en:"solid"}},
+    {Z:41, symbol:"Nb", name_zh:"铌",   name_en:"Niobium",    group:5,  period:5, category:"transition", mass:"92.906", phonetic:"", econf:"[Kr] 4d4 5s1", state:{zh:"固",en:"solid"}},
+    {Z:42, symbol:"Mo", name_zh:"钼",   name_en:"Molybdenum", group:6,  period:5, category:"transition", mass:"95.95",  phonetic:"", econf:"[Kr] 4d5 5s1", state:{zh:"固",en:"solid"}},
+    {Z:43, symbol:"Tc", name_zh:"锝",   name_en:"Technetium", group:7,  period:5, category:"transition", mass:"(98)",   phonetic:"", econf:"[Kr] 4d5 5s2", state:{zh:"固",en:"solid"}},
+    {Z:44, symbol:"Ru", name_zh:"钌",   name_en:"Ruthenium",  group:8,  period:5, category:"transition", mass:"101.07", phonetic:"", econf:"[Kr] 4d7 5s1", state:{zh:"固",en:"solid"}},
+    {Z:45, symbol:"Rh", name_zh:"铑",   name_en:"Rhodium",    group:9,  period:5, category:"transition", mass:"102.91", phonetic:"", econf:"[Kr] 4d8 5s1", state:{zh:"固",en:"solid"}},
+    {Z:46, symbol:"Pd", name_zh:"钯",   name_en:"Palladium",  group:10, period:5, category:"transition", mass:"106.42", phonetic:"", econf:"[Kr] 4d10", state:{zh:"固",en:"solid"}},
+    {Z:47, symbol:"Ag", name_zh:"银",   name_en:"Silver",     group:11, period:5, category:"transition", mass:"107.87", phonetic:"", econf:"[Kr] 4d10 5s1", state:{zh:"固",en:"solid"}},
+    {Z:48, symbol:"Cd", name_zh:"镉",   name_en:"Cadmium",    group:12, period:5, category:"transition", mass:"112.41", phonetic:"", econf:"[Kr] 4d10 5s2", state:{zh:"固",en:"solid"}},
+    {Z:49, symbol:"In", name_zh:"铟",   name_en:"Indium",     group:13, period:5, category:"post",       mass:"114.82", phonetic:"", econf:"[Kr] 4d10 5s2 5p1", state:{zh:"固",en:"solid"}},
+    {Z:50, symbol:"Sn", name_zh:"锡",   name_en:"Tin",        group:14, period:5, category:"post",       mass:"118.71", phonetic:"", econf:"[Kr] 4d10 5s2 5p2", state:{zh:"固",en:"solid"}},
+    {Z:51, symbol:"Sb", name_zh:"锑",   name_en:"Antimony",   group:15, period:5, category:"metalloid",  mass:"121.76", phonetic:"", econf:"[Kr] 4d10 5s2 5p3", state:{zh:"固",en:"solid"}},
+    {Z:52, symbol:"Te", name_zh:"碲",   name_en:"Tellurium",  group:16, period:5, category:"metalloid",  mass:"127.60", phonetic:"", econf:"[Kr] 4d10 5s2 5p4", state:{zh:"固",en:"solid"}},
+    {Z:53, symbol:"I",  name_zh:"碘",   name_en:"Iodine",     group:17, period:5, category:"halogen",    mass:"126.90", phonetic:"", econf:"[Kr] 4d10 5s2 5p5", state:{zh:"固",en:"solid"}},
+    {Z:54, symbol:"Xe", name_zh:"氙",   name_en:"Xenon",      group:18, period:5, category:"noble",      mass:"131.29", phonetic:"", econf:"[Kr] 4d10 5s2 5p6", state:{zh:"气",en:"gas"}},
+
+    {Z:55, symbol:"Cs", name_zh:"铯",   name_en:"Caesium",    group:1,  period:6, category:"alkali",      mass:"132.91", phonetic:"", econf:"[Xe] 6s1", state:{zh:"固",en:"solid"}},
+    {Z:56, symbol:"Ba", name_zh:"钡",   name_en:"Barium",     group:2,  period:6, category:"alkaline",    mass:"137.33", phonetic:"", econf:"[Xe] 6s2", state:{zh:"固",en:"solid"}},
+    {Z:57, symbol:"La", name_zh:"镧",   name_en:"Lanthanum",  group:3,  period:6, category:"lanthanide",  mass:"138.91", phonetic:"", econf:"[Xe] 5d1 6s2", state:{zh:"固",en:"solid"}},
+    {Z:58, symbol:"Ce", name_zh:"铈",   name_en:"Cerium",     group:3,  period:6, category:"lanthanide",  mass:"140.12", phonetic:"", econf:"[Xe] 4f1 5d1 6s2", state:{zh:"固",en:"solid"}},
+    {Z:59, symbol:"Pr", name_zh:"镨",   name_en:"Praseodymium",group:3, period:6, category:"lanthanide",  mass:"140.91", phonetic:"", econf:"[Xe] 4f3 6s2", state:{zh:"固",en:"solid"}},
+    {Z:60, symbol:"Nd", name_zh:"钕",   name_en:"Neodymium",  group:3,  period:6, category:"lanthanide",  mass:"144.24", phonetic:"", econf:"[Xe] 4f4 6s2", state:{zh:"固",en:"solid"}},
+    {Z:61, symbol:"Pm", name_zh:"钷",   name_en:"Promethium", group:3,  period:6, category:"lanthanide",  mass:"(145)",  phonetic:"", econf:"[Xe] 4f5 6s2", state:{zh:"固",en:"solid"}},
+    {Z:62, symbol:"Sm", name_zh:"钐",   name_en:"Samarium",   group:3,  period:6, category:"lanthanide",  mass:"150.36", phonetic:"", econf:"[Xe] 4f6 6s2", state:{zh:"固",en:"solid"}},
+    {Z:63, symbol:"Eu", name_zh:"铕",   name_en:"Europium",   group:3,  period:6, category:"lanthanide",  mass:"151.96", phonetic:"", econf:"[Xe] 4f7 6s2", state:{zh:"固",en:"solid"}},
+    {Z:64, symbol:"Gd", name_zh:"钆",   name_en:"Gadolinium", group:3,  period:6, category:"lanthanide",  mass:"157.25", phonetic:"", econf:"[Xe] 4f7 5d1 6s2", state:{zh:"固",en:"solid"}},
+    {Z:65, symbol:"Tb", name_zh:"铽",   name_en:"Terbium",    group:3,  period:6, category:"lanthanide",  mass:"158.93", phonetic:"", econf:"[Xe] 4f9 6s2", state:{zh:"固",en:"solid"}},
+    {Z:66, symbol:"Dy", name_zh:"镝",   name_en:"Dysprosium", group:3,  period:6, category:"lanthanide",  mass:"162.50", phonetic:"", econf:"[Xe] 4f10 6s2", state:{zh:"固",en:"solid"}},
+    {Z:67, symbol:"Ho", name_zh:"钬",   name_en:"Holmium",    group:3,  period:6, category:"lanthanide",  mass:"164.93", phonetic:"", econf:"[Xe] 4f11 6s2", state:{zh:"固",en:"solid"}},
+    {Z:68, symbol:"Er", name_zh:"铒",   name_en:"Erbium",     group:3,  period:6, category:"lanthanide",  mass:"167.26", phonetic:"", econf:"[Xe] 4f12 6s2", state:{zh:"固",en:"solid"}},
+    {Z:69, symbol:"Tm", name_zh:"铥",   name_en:"Thulium",    group:3,  period:6, category:"lanthanide",  mass:"168.93", phonetic:"", econf:"[Xe] 4f13 6s2", state:{zh:"固",en:"solid"}},
+    {Z:70, symbol:"Yb", name_zh:"镱",   name_en:"Ytterbium",  group:3,  period:6, category:"lanthanide",  mass:"173.05", phonetic:"", econf:"[Xe] 4f14 6s2", state:{zh:"固",en:"solid"}},
+    {Z:71, symbol:"Lu", name_zh:"镥",   name_en:"Lutetium",   group:3,  period:6, category:"lanthanide",  mass:"174.97", phonetic:"", econf:"[Xe] 4f14 5d1 6s2", state:{zh:"固",en:"solid"}},
+
+    {Z:72, symbol:"Hf", name_zh:"铪",   name_en:"Hafnium",    group:4,  period:6, category:"transition", mass:"178.49", phonetic:"", econf:"[Xe] 4f14 5d2 6s2", state:{zh:"固",en:"solid"}},
+    {Z:73, symbol:"Ta", name_zh:"钽",   name_en:"Tantalum",   group:5,  period:6, category:"transition", mass:"180.95", phonetic:"", econf:"[Xe] 4f14 5d3 6s2", state:{zh:"固",en:"solid"}},
+    {Z:74, symbol:"W",  name_zh:"钨",   name_en:"Tungsten",   group:6,  period:6, category:"transition", mass:"183.84", phonetic:"", econf:"[Xe] 4f14 5d4 6s2", state:{zh:"固",en:"solid"}},
+    {Z:75, symbol:"Re", name_zh:"铼",   name_en:"Rhenium",    group:7,  period:6, category:"transition", mass:"186.21", phonetic:"", econf:"[Xe] 4f14 5d5 6s2", state:{zh:"固",en:"solid"}},
+    {Z:76, symbol:"Os", name_zh:"锇",   name_en:"Osmium",     group:8,  period:6, category:"transition", mass:"190.23", phonetic:"", econf:"[Xe] 4f14 5d6 6s2", state:{zh:"固",en:"solid"}},
+    {Z:77, symbol:"Ir", name_zh:"铱",   name_en:"Iridium",    group:9,  period:6, category:"transition", mass:"192.22", phonetic:"", econf:"[Xe] 4f14 5d7 6s2", state:{zh:"固",en:"solid"}},
+    {Z:78, symbol:"Pt", name_zh:"铂",   name_en:"Platinum",   group:10, period:6, category:"transition", mass:"195.08", phonetic:"", econf:"[Xe] 4f14 5d9 6s1", state:{zh:"固",en:"solid"}},
+    {Z:79, symbol:"Au", name_zh:"金",   name_en:"Gold",       group:11, period:6, category:"transition", mass:"196.97", phonetic:"", econf:"[Xe] 4f14 5d10 6s1", state:{zh:"固",en:"solid"}},
+    {Z:80, symbol:"Hg", name_zh:"汞",   name_en:"Mercury",    group:12, period:6, category:"transition", mass:"200.59", phonetic:"", econf:"[Xe] 4f14 5d10 6s2", state:{zh:"液",en:"liquid"}},
+    {Z:81, symbol:"Tl", name_zh:"铊",   name_en:"Thallium",   group:13, period:6, category:"post",       mass:"204.38", phonetic:"", econf:"[Xe] 4f14 5d10 6s2 6p1", state:{zh:"固",en:"solid"}},
+    {Z:82, symbol:"Pb", name_zh:"铅",   name_en:"Lead",       group:14, period:6, category:"post",       mass:"207.2",  phonetic:"", econf:"[Xe] 4f14 5d10 6s2 6p2", state:{zh:"固",en:"solid"}},
+    {Z:83, symbol:"Bi", name_zh:"铋",   name_en:"Bismuth",    group:15, period:6, category:"post",       mass:"208.98", phonetic:"", econf:"[Xe] 4f14 5d10 6s2 6p3", state:{zh:"固",en:"solid"}},
+    {Z:84, symbol:"Po", name_zh:"钋",   name_en:"Polonium",   group:16, period:6, category:"post",       mass:"(209)",  phonetic:"", econf:"[Xe] 4f14 5d10 6s2 6p4", state:{zh:"固",en:"solid"}},
+    {Z:85, symbol:"At", name_zh:"砹",   name_en:"Astatine",   group:17, period:6, category:"halogen",    mass:"(210)",  phonetic:"", econf:"[Xe] 4f14 5d10 6s2 6p5", state:{zh:"固",en:"solid"}},
+    {Z:86, symbol:"Rn", name_zh:"氡",   name_en:"Radon",      group:18, period:6, category:"noble",      mass:"(222)",  phonetic:"", econf:"[Xe] 4f14 5d10 6s2 6p6", state:{zh:"气",en:"gas"}},
+
+    {Z:87, symbol:"Fr", name_zh:"钫",   name_en:"Francium",   group:1,  period:7, category:"alkali",      mass:"(223)",  phonetic:"", econf:"[Rn] 7s1", state:{zh:"固",en:"solid"}},
+    {Z:88, symbol:"Ra", name_zh:"镭",   name_en:"Radium",     group:2,  period:7, category:"alkaline",    mass:"(226)",  phonetic:"", econf:"[Rn] 7s2", state:{zh:"固",en:"solid"}},
+    {Z:89, symbol:"Ac", name_zh:"锕",   name_en:"Actinium",   group:3,  period:7, category:"actinide",    mass:"(227)",  phonetic:"", econf:"[Rn] 6d1 7s2", state:{zh:"固",en:"solid"}},
+    {Z:90, symbol:"Th", name_zh:"钍",   name_en:"Thorium",    group:3,  period:7, category:"actinide",    mass:"232.04", phonetic:"", econf:"[Rn] 6d2 7s2", state:{zh:"固",en:"solid"}},
+    {Z:91, symbol:"Pa", name_zh:"镤",   name_en:"Protactinium",group:3, period:7, category:"actinide",    mass:"231.04", phonetic:"", econf:"[Rn] 5f2 6d1 7s2", state:{zh:"固",en:"solid"}},
+    {Z:92, symbol:"U",  name_zh:"铀",   name_en:"Uranium",    group:3,  period:7, category:"actinide",    mass:"238.03", phonetic:"", econf:"[Rn] 5f3 6d1 7s2", state:{zh:"固",en:"solid"}},
+    {Z:93, symbol:"Np", name_zh:"镎",   name_en:"Neptunium",  group:3,  period:7, category:"actinide",    mass:"(237)",  phonetic:"", econf:"[Rn] 5f4 6d1 7s2", state:{zh:"固",en:"solid"}},
+    {Z:94, symbol:"Pu", name_zh:"钚",   name_en:"Plutonium",  group:3,  period:7, category:"actinide",    mass:"(244)",  phonetic:"", econf:"[Rn] 5f6 7s2", state:{zh:"固",en:"solid"}},
+    {Z:95, symbol:"Am", name_zh:"镅",   name_en:"Americium",  group:3,  period:7, category:"actinide",    mass:"(243)",  phonetic:"", econf:"[Rn] 5f7 7s2", state:{zh:"固",en:"solid"}},
+    {Z:96, symbol:"Cm", name_zh:"锔",   name_en:"Curium",     group:3,  period:7, category:"actinide",    mass:"(247)",  phonetic:"", econf:"[Rn] 5f7 6d1 7s2", state:{zh:"固",en:"solid"}},
+    {Z:97, symbol:"Bk", name_zh:"锫",   name_en:"Berkelium",  group:3,  period:7, category:"actinide",    mass:"(247)",  phonetic:"", econf:"[Rn] 5f9 7s2", state:{zh:"固",en:"solid"}},
+    {Z:98, symbol:"Cf", name_zh:"锎",   name_en:"Californium",group:3,  period:7, category:"actinide",    mass:"(251)",  phonetic:"", econf:"[Rn] 5f10 7s2", state:{zh:"固",en:"solid"}},
+    {Z:99, symbol:"Es", name_zh:"锿",   name_en:"Einsteinium",group:3,  period:7, category:"actinide",    mass:"(252)",  phonetic:"", econf:"[Rn] 5f11 7s2", state:{zh:"固",en:"solid"}},
+    {Z:100,symbol:"Fm", name_zh:"镄",   name_en:"Fermium",    group:3,  period:7, category:"actinide",    mass:"(257)",  phonetic:"", econf:"[Rn] 5f12 7s2", state:{zh:"固",en:"solid"}},
+    {Z:101,symbol:"Md", name_zh:"钔",   name_en:"Mendelevium",group:3,  period:7, category:"actinide",    mass:"(258)",  phonetic:"", econf:"[Rn] 5f13 7s2", state:{zh:"固",en:"solid"}},
+    {Z:102,symbol:"No", name_zh:"锘",   name_en:"Nobelium",   group:3,  period:7, category:"actinide",    mass:"(259)",  phonetic:"", econf:"[Rn] 5f14 7s2", state:{zh:"固",en:"solid"}},
+    {Z:103,symbol:"Lr", name_zh:"铹",   name_en:"Lawrencium", group:3,  period:7, category:"actinide",    mass:"(266)",  phonetic:"", econf:"[Rn] 5f14 7s2 7p1", state:{zh:"固",en:"solid"}},
+
+    {Z:104,symbol:"Rf", name_zh:"𬬻", name_en:"Rutherfordium",group:4,  period:7, category:"transition", mass:"(267)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:105,symbol:"Db", name_zh:"𬭊", name_en:"Dubnium",      group:5,  period:7, category:"transition", mass:"(268)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:106,symbol:"Sg", name_zh:"𬭳", name_en:"Seaborgium",   group:6,  period:7, category:"transition", mass:"(269)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:107,symbol:"Bh", name_zh:"𬭛", name_en:"Bohrium",      group:7,  period:7, category:"transition", mass:"(270)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:108,symbol:"Hs", name_zh:"𬭶", name_en:"Hassium",      group:8,  period:7, category:"transition", mass:"(270)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:109,symbol:"Mt", name_zh:"䥑",  name_en:"Meitnerium",  group:9,  period:7, category:"transition", mass:"(278)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:110,symbol:"Ds", name_zh:"𫟼", name_en:"Darmstadtium", group:10, period:7, category:"transition", mass:"(281)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:111,symbol:"Rg", name_zh:"𬬭", name_en:"Roentgenium",  group:11, period:7, category:"transition", mass:"(282)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:112,symbol:"Cn", name_zh:"鎶",  name_en:"Copernicium", group:12, period:7, category:"transition", mass:"(285)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:113,symbol:"Nh", name_zh:"鉨",  name_en:"Nihonium",    group:13, period:7, category:"post",       mass:"(286)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:114,symbol:"Fl", name_zh:"鈇",  name_en:"Flerovium",   group:14, period:7, category:"post",       mass:"(289)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:115,symbol:"Mc", name_zh:"镆",  name_en:"Moscovium",   group:15, period:7, category:"post",       mass:"(290)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:116,symbol:"Lv", name_zh:"鉝",  name_en:"Livermorium", group:16, period:7, category:"post",       mass:"(293)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:117,symbol:"Ts", name_zh:"鿬",  name_en:"Tennessine",  group:17, period:7, category:"halogen",    mass:"(294)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}},
+    {Z:118,symbol:"Og", name_zh:"鿫",  name_en:"Oganesson",   group:18, period:7, category:"noble",      mass:"(294)", phonetic:"", econf:"—", state:{zh:"—",en:"—"}}
+  ];
+
+  // DOM
+  const mainGrid = document.getElementById("mainGrid");
+  const lanGrid  = document.getElementById("lanGrid");
+  const actGrid  = document.getElementById("actGrid");
+  const legend   = document.getElementById("legend");
+
+  const langToggle= document.getElementById("langToggle");
+  const langLabel = document.getElementById("langLabel");
+  const pageTitle = document.getElementById("pageTitle");
+  const pageSub   = document.getElementById("pageSub");
+  const lanTitle  = document.getElementById("lanTitle");
+  const actTitle  = document.getElementById("actTitle");
+  const btnStopSpeak = document.getElementById("btnStopSpeak");
+  const stopSpeakText = document.getElementById("stopSpeakText");
+
+  const overlay  = document.getElementById("overlay");
+  const modal    = document.getElementById("modal");
+  const modalName= document.getElementById("modalName");
+  const modalSub = document.getElementById("modalSub");
+  const modalKV  = document.getElementById("modalKV");
+  const modalHint= document.getElementById("modalHint");
+  const btnClose = document.getElementById("btnClose");
+  const closeText= document.getElementById("closeText");
+  const btnSpeak = document.getElementById("btnSpeak");
+  const speakText= document.getElementById("speakText");
+
+  function displayName(el){ return (state.lang==="zh") ? el.name_zh : el.name_en; }
+  function categoryLabel(catKey){
+    const c = categories.find(x=>x.key===catKey) || categories.find(x=>x.key==="unknown");
+    return (state.lang==="zh") ? c.zh : c.en;
+  }
+
+  function renderLegend(){
+    legend.innerHTML = "";
+    categories.forEach(c=>{
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      const dot = document.createElement("span");
+      dot.className = "dot " + catClass(c.key);
+      const label = document.createElement("span");
+      label.textContent = (state.lang==="zh") ? c.zh : c.en;
+      chip.appendChild(dot);
+      chip.appendChild(label);
+      legend.appendChild(chip);
+    });
+  }
+
+  function buildKV(el){
+    const kv = [];
+    if(state.lang==="zh"){
+      kv.push(["原子序数", String(el.Z)]);
+      kv.push(["元素符号", el.symbol]);
+      kv.push(["中文名", el.name_zh]);
+      kv.push(["英文名", el.name_en]);
+      kv.push(["英文音标/读音", el.phonetic ? el.phonetic : "—"]);
+      kv.push(["分类", categoryLabel(el.category)]);
+      kv.push(["族 / 周期", `${el.group} / ${el.period}`]);
+      kv.push(["相对原子质量", el.mass ?? "—"]);
+      kv.push(["电子排布", el.econf ?? "—"]);
+      kv.push(["常温物态", el.state?.zh ?? "—"]);
+    }else{
+      kv.push(["Atomic No.", String(el.Z)]);
+      kv.push(["Symbol", el.symbol]);
+      kv.push(["English", el.name_en]);
+      kv.push(["Chinese", el.name_zh]);
+      kv.push(["Phonetic/IPA", el.phonetic ? el.phonetic : "—"]);
+      kv.push(["Category", categoryLabel(el.category)]);
+      kv.push(["Group / Period", `${el.group} / ${el.period}`]);
+      kv.push(["Atomic mass", el.mass ?? "—"]);
+      kv.push(["Electron config.", el.econf ?? "—"]);
+      kv.push(["State (STP)", el.state?.en ?? "—"]);
+    }
+    return kv;
+  }
+
+  function fillKV(container, el){
+    container.innerHTML = "";
+    buildKV(el).forEach(([k,v])=>{
+      const kEl = document.createElement("div");
+      kEl.className = "k";
+      kEl.textContent = k;
+
+      const vEl = document.createElement("div");
+      vEl.className = "v";
+      vEl.textContent = v;
+
+      container.appendChild(kEl);
+      container.appendChild(vEl);
+    });
+  }
+
+  function openModal(el){
+    state.currentElement = el;
+
+    modalName.textContent = displayName(el);
+    modalSub.textContent  = `#${el.Z}  ${el.symbol}  ·  ${categoryLabel(el.category)}`;
+    fillKV(modalKV, el);
+
+    overlay.classList.add("show");
+    overlay.setAttribute("aria-hidden","false");
+
+    // 把焦点给关闭按钮，键盘体验更好
+    btnClose.focus({preventScroll:true});
+  }
+
+  function closeModal(){
+    overlay.classList.remove("show");
+    overlay.setAttribute("aria-hidden","true");
+    state.currentElement = null;
+  }
+
+  btnClose.addEventListener("click", closeModal);
+
+  // 点击遮罩关闭（但点到弹窗内容不关）
+  overlay.addEventListener("mousedown", (e)=>{
+    if(e.target === overlay) closeModal();
+  });
+
+  // 防止在弹窗内部点击时触发 overlay 逻辑（保险）
+  modal.addEventListener("mousedown", (e)=> e.stopPropagation());
+
+  // 表格渲染
+  function createCell(el){
+    const d = document.createElement("div");
+    d.className = "cell " + catClass(el.category);
+    d.tabIndex = 0;
+    d.dataset.z = el.Z;
+
+    if(el.Z <= 56 || (el.Z >= 72 && el.Z <= 88) || (el.Z >= 104 && el.Z <= 118)){
+      d.style.gridColumn = String(el.group);
+      d.style.gridRow = String(el.period);
+    }
+
+    const n = document.createElement("div");
+    n.className = "n";
+    n.textContent = el.Z;
+
+    const sym = document.createElement("div");
+    sym.className = "sym";
+    sym.textContent = el.symbol;
+
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = displayName(el);
+
+    d.appendChild(n);
+    d.appendChild(sym);
+    d.appendChild(name);
+
+    d.addEventListener("click", ()=> openModal(el));
+    d.addEventListener("keydown", (ev)=>{
+      if(ev.key === "Enter" || ev.key === " "){
+        ev.preventDefault();
+        openModal(el);
+      }
+    });
+
+    return d;
+  }
+
+  function renderTable(){
+    mainGrid.innerHTML = "";
+    lanGrid.innerHTML = "";
+    actGrid.innerHTML = "";
+
+    const main = E.filter(el => (el.Z <= 56) || (el.Z >= 72 && el.Z <= 88) || (el.Z >= 104 && el.Z <= 118));
+    main.forEach(el => mainGrid.appendChild(createCell(el)));
+
+    E.filter(el => el.Z>=57 && el.Z<=71).forEach(el => lanGrid.appendChild(createCell(el)));
+    E.filter(el => el.Z>=89 && el.Z<=103).forEach(el => actGrid.appendChild(createCell(el)));
+  }
+
+  // 语音朗读
+  function pickEnglishVoice(){
+    const voices = window.speechSynthesis?.getVoices?.() || [];
+    return voices.find(v => /en-US/i.test(v.lang)) ||
+           voices.find(v => /en-GB/i.test(v.lang)) ||
+           voices.find(v => /^en/i.test(v.lang)) || null;
+  }
+
+  function speakEnglish(text){
+    if(!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)){
+      alert(state.lang==="zh" ? "当前浏览器不支持语音朗读。" : "Speech synthesis is not supported in this browser.");
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 0.95;
+    u.pitch = 1.0;
+    state.preferVoice = state.preferVoice || pickEnglishVoice();
+    if(state.preferVoice) u.voice = state.preferVoice;
+    window.speechSynthesis.speak(u);
+  }
+
+  function stopSpeak(){
+    if("speechSynthesis" in window) window.speechSynthesis.cancel();
+  }
+
+  if("speechSynthesis" in window){
+    window.speechSynthesis.onvoiceschanged = ()=>{ state.preferVoice = pickEnglishVoice(); };
+  }
+
+  btnSpeak.addEventListener("click", ()=>{
+    const el = state.currentElement;
+    if(!el) return;
+    speakEnglish(el.name_en);
+  });
+
+  btnStopSpeak.addEventListener("click", stopSpeak);
+
+  // 语言切换
+  function applyLang(){
+    const zh = state.lang==="zh";
+    pageTitle.textContent = zh ? "元素周期表" : "Periodic Table";
+    pageSub.textContent   = zh
+      ? "点击元素查看详情；支持中英文切换与英文朗读（浏览器语音）。"
+      : "Click an element to view details. Supports Chinese/English toggle and English pronunciation (browser speech).";
+
+    lanTitle.textContent  = zh ? "镧系（57–71）" : "Lanthanides (57–71)";
+    actTitle.textContent  = zh ? "锕系（89–103）" : "Actinides (89–103)";
+
+    langLabel.textContent = zh ? "中文 / English" : "English / 中文";
+    speakText.textContent = zh ? "发音" : "Speak";
+    stopSpeakText.textContent = zh ? "停止朗读" : "Stop speech";
+    closeText.textContent = zh ? "关闭" : "Close";
+    modalHint.textContent = zh ? "提示：点击遮罩或按 Esc 可关闭。" : "Tip: Click outside or press Esc to close.";
+
+    renderLegend();
+    renderTable();
+
+    // 如果弹窗开着，切换语言时同步刷新弹窗内容
+    if(overlay.classList.contains("show") && state.currentElement){
+      openModal(state.currentElement);
+    }
+  }
+
+  langToggle.addEventListener("change", ()=>{
+    state.lang = langToggle.checked ? "en" : "zh";
+    applyLang();
+  });
+
+  // Esc 关闭弹窗 + 停止朗读
+  window.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape"){
+      if(overlay.classList.contains("show")) closeModal();
+      stopSpeak();
+    }
+  });
+
+  // 初始化
+  renderLegend();
+  renderTable();
+  applyLang();
+
+})();
+</script>
+</body>
+</html>
